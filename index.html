@@ -286,13 +286,13 @@ video{width:100%;height:100%;object-fit:contain;display:none}
 
 <script>
 const HLS_CFG={maxBufferLength:20,maxMaxBufferLength:40,maxBufferSize:30e6,startLevel:-1,abrEwmaDefaultEstimate:1e6,startFragPrefetch:true,lowLatencyMode:false};
-const MAX_ERRORS=3,AUTO_DEL_DELAY=8000;
+const MAX_ERRORS=3,AUTO_DEL_DELAY=8000,LOAD_TIMEOUT=12000;
 const FLAGS={'Argentina':'🇦🇷','Bolivia':'🇧🇴','Brazil':'🇧🇷','Chile':'🇨🇱','Colombia':'🇨🇴','Costa Rica':'🇨🇷','Cuba':'🇨🇺','Dominican Republic':'🇩🇴','Ecuador':'🇪🇨','El Salvador':'🇸🇻','Guatemala':'🇬🇹','Honduras':'🇭🇳','Mexico':'🇲🇽','Nicaragua':'🇳🇮','Panama':'🇵🇦','Paraguay':'🇵🇾','Peru':'🇵🇪','Puerto Rico':'🇵🇷','USA Entertainment':'🇺🇸','Uruguay':'🇺🇾','Venezuela':'🇻🇪'};
 
 let favs    = JSON.parse(localStorage.getItem('iptv_favs') || '[]');
 let dead    = JSON.parse(localStorage.getItem('iptv_dead') || '[]');
 let hist    = JSON.parse(localStorage.getItem('iptv_hist') || '[]');
-let allCh=[],channels=[],filtered=[],activeIdx=-1,hls=null,errCount=0,delTimer=null,filterTimer=null,activeTab='all';
+let allCh=[],channels=[],filtered=[],activeIdx=-1,hls=null,errCount=0,delTimer=null,loadTimer=null,filterTimer=null,activeTab='all';
 
 const TABS=[
   {label:'All',v:'all'},{label:'⭐ Favs',v:'favorites'},{label:'🕐 Recent',v:'history'},
@@ -398,29 +398,32 @@ function playAt(i){
 function addToHist(url){hist=[url,...hist.filter(u=>u!==url)].slice(0,30);localStorage.setItem('iptv_hist',JSON.stringify(hist));}
 
 function startPlay(ch){
-  clearTimer();errCount=0;
+  clearTimer();clearLoadTimer();errCount=0;
   const vid=document.getElementById('video'),sp=document.getElementById('spinner');
   document.getElementById('no-ch').classList.add('hidden');
   document.getElementById('live-badge').classList.add('hidden');
   vid.style.display='block';sp.style.display='block';
   if(hls){hls.destroy();hls=null;}
+  // auto-remove if stream hangs with no signal within LOAD_TIMEOUT
+  loadTimer=setTimeout(()=>{sp.style.display='none';toast(`No signal: ${esc(ch.name)}`,'error',3500);doRemove(ch.url,true);},LOAD_TIMEOUT);
   if(Hls.isSupported()){
     hls=new Hls(HLS_CFG);hls.loadSource(ch.url);hls.attachMedia(vid);
-    hls.on(Hls.Events.MANIFEST_PARSED,()=>{sp.style.display='none';document.getElementById('live-badge').classList.remove('hidden');vid.play().catch(()=>{});});
+    hls.on(Hls.Events.MANIFEST_PARSED,()=>{clearLoadTimer();sp.style.display='none';document.getElementById('live-badge').classList.remove('hidden');vid.play().catch(()=>{});});
     hls.on(Hls.Events.ERROR,(_,d)=>{
       if(!d.fatal)return;errCount++;
       if(errCount<MAX_ERRORS){hls.destroy();hls=new Hls(HLS_CFG);hls.loadSource(ch.url);hls.attachMedia(vid);}
-      else{sp.style.display='none';scheduleAutoDel(ch);}
+      else{clearLoadTimer();sp.style.display='none';scheduleAutoDel(ch);}
     });
   }else if(vid.canPlayType('application/vnd.apple.mpegurl')){
     vid.src=ch.url;
-    vid.addEventListener('loadedmetadata',()=>{sp.style.display='none';document.getElementById('live-badge').classList.remove('hidden');vid.play().catch(()=>{});},{once:true});
-    vid.addEventListener('error',()=>{errCount++;if(errCount>=MAX_ERRORS)scheduleAutoDel(ch);});
+    vid.addEventListener('loadedmetadata',()=>{clearLoadTimer();sp.style.display='none';document.getElementById('live-badge').classList.remove('hidden');vid.play().catch(()=>{});},{once:true});
+    vid.addEventListener('error',()=>{errCount++;if(errCount>=MAX_ERRORS){clearLoadTimer();scheduleAutoDel(ch);}});
   }
 }
 
 function scheduleAutoDel(ch){showErrBanner(ch);delTimer=setTimeout(()=>doRemove(ch.url,true),AUTO_DEL_DELAY);}
 function clearTimer(){if(delTimer){clearTimeout(delTimer);delTimer=null;}removeErrBanner();}
+function clearLoadTimer(){if(loadTimer){clearTimeout(loadTimer);loadTimer=null;}}
 
 function showErrBanner(ch){
   removeErrBanner();
@@ -492,6 +495,7 @@ function updatePlayerBar(ch){
 }
 
 function resetPlayer(){
+  clearLoadTimer();
   if(hls){hls.destroy();hls=null;}
   const vid=document.getElementById('video');
   vid.pause();vid.removeAttribute('src');vid.style.display='none';
