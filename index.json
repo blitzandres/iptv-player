@@ -1,0 +1,86 @@
+{
+  "project": "iptv-player",
+  "version": "2.0",
+  "description": "Static IPTV web player for Latin America & USA — HLS.js, channel search, favorites, watch history, custom M3U loading. Dark OTT theme. No build tools.",
+  "repo": "https://github.com/blitzandres/iptv-player",
+  "stack": ["HTML", "CSS", "Vanilla JS", "HLS.js CDN"],
+  "files": {
+    "index.html": {
+      "role": "Main app — all UI, CSS, and JS logic. NO channel data embedded.",
+      "size_note": "~28KB — intentionally light",
+      "sections": {
+        "css_vars": ":root block at top — all design tokens (colors, spacing, typography)",
+        "html_structure": "topbar → .main(.sidebar + .player-area) → toasts → modals",
+        "js_state": "Variables declared after <script>: favs, dead, hist, allCh, channels, filtered, activeIdx",
+        "js_boot": "boot() — async fetches channels.json, then calls buildTabs/buildCountryFilter/filterChannels/bindKeys",
+        "js_playback": "startPlay(ch) — HLS.js or native HLS fallback, error retry logic, auto-remove dead streams",
+        "js_filter": "filterChannels() — applies activeTab + group dropdown + text search; debouncedFilter() wraps it",
+        "js_render": "renderList() — renders filtered[] as .ch-item elements with inline event handlers",
+        "js_tabs": "TABS array → buildTabs() → activeTab state variable drives filterChannels()",
+        "js_favorites": "toggleFav(i) / toggleActiveFav() — stored in localStorage key iptv_favs",
+        "js_history": "addToHist(url) called on playAt(); stored in localStorage key iptv_hist (last 30)",
+        "js_m3u": "parseM3U(text, fallbackGroup) → mergePlaylist(newChs) — handles URL or File input",
+        "js_keyboard": "bindKeys() — ↑↓ navigate, / search, Space play/pause, F fav, M mute, Del remove, ? shortcuts"
+      }
+    },
+    "channels.json": {
+      "role": "All channel data — fetched async by index.html on load",
+      "format": "JSON array of {name, logo, group, url} objects",
+      "total_channels": 1282,
+      "source": "Merged from iptv-latam-usa.m3u + iptv-custom.m3u + additional sources",
+      "where_to_add_channels": "Append objects to the array. Required fields: name (string), url (string). Optional: logo (string URL), group (string).",
+      "where_to_edit_channels": "Find channel by name or url, edit the object in-place.",
+      "groups": ["Argentina","Bolivia","Brazil","Chile","Colombia","Costa Rica","Cuba","Dominican Republic","Ecuador","El Salvador","General","Guatemala","Honduras","Kids & Animation","Mexico","Music","Nicaragua","Panama","Paraguay","Peru","Puerto Rico","Religious","Sports","USA Entertainment","Uruguay","Venezuela"]
+    },
+    "iptv-latam-usa.m3u": {
+      "role": "Source M3U playlist — Latin America & USA channels",
+      "format": "Standard M3U8 extended format (#EXTM3U + #EXTINF lines)",
+      "note": "Reference/source file; channels.json is the derived working copy"
+    },
+    "iptv-custom.m3u": {
+      "role": "Custom M3U playlist — Venezuela/LATAM focus, categorized",
+      "format": "Standard M3U8 extended format",
+      "note": "Reference/source file; channels.json is the derived working copy"
+    },
+    "tv-alt.html": {
+      "role": "Easter egg page — personal message, no functional code"
+    }
+  },
+  "localStorage_keys": {
+    "iptv_favs": "JSON array of stream URLs the user has favorited",
+    "iptv_dead": "JSON array of stream URLs permanently removed by the user",
+    "iptv_hist": "JSON array of stream URLs in reverse-chronological play order (max 30)"
+  },
+  "add_channels_quickstart": {
+    "via_ui": "Click 'Load' button in topbar → paste M3U URL or pick local .m3u file",
+    "via_channels_json": "Edit channels.json — append {name, logo, group, url} to the array",
+    "via_m3u_file": "Edit iptv-latam-usa.m3u or iptv-custom.m3u, then re-run the merge script (not automated)"
+  },
+  "key_functions": {
+    "playAt(i)": "Play channel at index i in filtered[]",
+    "filterChannels()": "Re-filter channels[] based on activeTab, group dropdown, and search text",
+    "toggleFav(i)": "Add/remove channel at index i from favorites",
+    "parseM3U(text, group)": "Parse M3U text → array of channel objects",
+    "mergePlaylist(channels)": "Add new channels to runtime state, deduplicating by URL",
+    "boot()": "Entry point — fetches channels.json, initializes UI"
+  },
+  "design_tokens": {
+    "--bg": "#000 (OLED black)",
+    "--surface": "#0c0c0d (topbar, sidebar, player bar)",
+    "--card": "#181818 (inputs, channel logo boxes, buttons)",
+    "--accent": "#e11d48 (red — active states, live indicator, errors)",
+    "--t1": "#f8fafc (primary text)",
+    "--t2": "#94a3b8 (secondary text)",
+    "--t3": "#4b5563 (placeholder, disabled)",
+    "--green": "#22c55e (LIVE badge, success toasts)",
+    "--gold": "#f59e0b (favorites star)"
+  },
+  "ai_agent_notes": {
+    "to_add_a_channel": "Edit channels.json — append to array. name + url required.",
+    "to_change_colors": "Edit CSS :root vars in index.html — top of <style> block.",
+    "to_add_a_tab": "Add entry to TABS array in index.html JS, then add filter logic in filterChannels().",
+    "to_change_group_flags": "Edit FLAGS object in index.html JS.",
+    "channel_data_not_in_html": "index.html contains ZERO channel data — all channels live in channels.json.",
+    "no_build_step": "Edit files directly — no npm, no bundler, no compilation needed."
+  }
+}
